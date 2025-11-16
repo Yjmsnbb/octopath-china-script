@@ -7,7 +7,7 @@ Dim cfg_flower, cfg_flower_1, cfg_flower_2, cfg_flower_target
 Dim cfg_nut, cfg_nut_target
 Dim cfg_limit, cfg_limit_count
 Dim cfg_harvest, cfg_harvest_mode
-Dim cfg_shop, cfg_resolution
+Dim cfg_shop, cfg_shop_mode, cfg_resolution
 
 ' --- 运行控制变量 ---
 Dim scaleX, scaleY ' 缩放比例
@@ -207,13 +207,11 @@ Function Task_NutFarm(targetNum)
                      Call Click(430, 960)
                      isDone = True
                 Else
-                     Call UpdateStatus(current_phase_name, "未满(" & num & ")")
-                     ' 果炎没满通常不需要重启，直接重跑即可，或者根据您的原逻辑重启
-                     ' 这里为了单次运行效率，我们只重置位置重试，不强制重启游戏，除非完全卡死
-                     Call CheckAndGoToTown()
-                     Call OpenMap()
-                     Call TpTown(998)
-                     Call MoveMinimap(722, 677)
+                     Call UpdateStatus(current_phase_name, "未满(" & num & ")，执行重启刷新")
+                     
+                     ' [关键修改] 仅重启游戏，移除后续跑图逻辑，保持原地重试
+                     Call RestartGameLogic() 
+                     
                      retry = retry + 1
                 End If
              End If
@@ -269,6 +267,13 @@ Function Task_Collect()
     Call Click(189, 724)
     Delay 1000
     
+    ' [新增操作] 关闭地图前的额外点击
+    Call UpdateStatus(current_phase_name, "执行额外点击")
+    Call Click(122, 142)
+    Call Click(160, 952)
+    Call Click(174, 693)
+    Delay 500
+    
     Call CloseMap()
     Call UpdateStatus(current_phase_name, "收集操作完成")
 End Function
@@ -296,14 +301,23 @@ Function Task_MemoryShards()
     Call Click(660, 1600)
     
     Dim i
+    ' 循环购买 3 次
     For i = 1 To 3
-        Call Click(220, 1000)
-        Delay 500
-        Call Click(280, 1200)
+        If CInt(cfg_shop_mode) = 0 Then
+            ' 模式0: 原价购买
+            Call Click(220, 1000)
+            Delay 500
+            Call Click(280, 1200)
+        Else
+            ' 模式1: 砍价购买 (使用您提供的坐标)
+            Call Click(199, 932)
+            Delay 500
+            Call Click(272, 1153)
+        End If
         Delay 1000
     Next
     
-    Call Click(430, 1000)
+    Call Click(430, 1000) ' 最终确定
     Call LogUI("商店", "购买完成")
     
     For i = 1 To 3
@@ -333,7 +347,10 @@ Sub InitScript()
     cfg_limit_count = ReadUIConfig("input_loop_count")
     cfg_harvest = ReadUIConfig("chk_harvest")
     cfg_harvest_mode = ReadUIConfig("drop_harvest_mode")
+    
     cfg_shop = ReadUIConfig("chk_shop")
+    cfg_shop_mode = ReadUIConfig("drop_shop_mode") ' 新增商店购买模式
+    
     cfg_resolution = ReadUIConfig("drop_resolution")
     
     ' 2. 计算缩放
